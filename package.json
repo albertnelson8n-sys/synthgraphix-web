@@ -1,0 +1,15 @@
+{
+  "name": "synthgraphix-web",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "install:all": "npm i --workspaces",
+    "dev": "concurrently -n server,client -c green,cyan \"npm --workspace server run dev\" \"npm --workspace client run dev\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

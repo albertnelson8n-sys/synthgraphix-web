@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <radialGradient id="gold" cx="38%" cy="30%" r="75%">
+      <stop offset="0" stop-color="#fff1b8"/>
+      <stop offset="0.28" stop-color="#ffd56a"/>
+      <stop offset="0.62" stop-color="#d9a127"/>
+      <stop offset="1" stop-color="#7b4f00"/>
+    </radialGradient>
+    <radialGradient id="inner" cx="40%" cy="35%" r="70%">
+      <stop offset="0" stop-color="#2a2a2a"/>
+      <stop offset="0.5" stop-color="#0f0f0f"/>
+      <stop offset="1" stop-color="#000000"/>
+    </radialGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffe7a0"/>
+      <stop offset="0.35" stop-color="#f4b83a"/>
+      <stop offset="0.7" stop-color="#b97b12"/>
+      <stop offset="1" stop-color="#6f4300"/>
+    </linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="0.55"/>
+    </filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feColorMatrix in="b" type="matrix"
+        values="0 0 0 0 0.10
+                0 0 0 0 0.90
+                0 0 0 0 0.30
+                0 0 0 0.7 0" result="g"/>
+      <feMerge>
+        <feMergeNode in="g"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <circle cx="128" cy="128" r="92" fill="url(#gold)"/>
+    <circle cx="128" cy="128" r="78" fill="url(#edge)" opacity="0.85"/>
+    <circle cx="128" cy="128" r="70" fill="url(#inner)"/>
+  </g>
+
+  <path d="M52 120c8-42 44-72 84-72 20 0 38 6 53 16"
+        fill="none" stroke="#fff7d2" stroke-width="8" stroke-linecap="round" opacity="0.35"/>
+  <path d="M54 142c10 40 46 70 88 70 20 0 38-6 52-16"
+        fill="none" stroke="#fff7d2" stroke-width="7" stroke-linecap="round" opacity="0.18"/>
+
+  <g filter="url(#glow)" transform="translate(0,2)">
+    <path d="M78 98c8-10 20-15 36-15 18 0 30 5 38 13 4 4 7 10 7 16 0 10-6 18-18 22l-18 6c-6 2-9 5-9 8 0 6 6 10 18 10 10 0 18-2 24-6l0 18c-8 4-18 6-30 6-18 0-32-5-40-14-4-5-7-11-7-18 0-12 8-20 24-25l18-6c5-2 8-4 8-8 0-6-6-9-18-9-10 0-20 3-28 10z"
+          fill="#f7d26a" stroke="#ffe9a8" stroke-width="2"/>
+    <path d="M152 100c8-11 20-17 36-17 22 0 38 9 45 25 3 7 5 15 5 24 0 26-13 45-40 51-7 2-14 2-22 2-10 0-18-1-26-3v-18c8 3 16 4 24 4 20 0 30-10 30-28h-26v-18h44c-2-16-12-24-28-24-10 0-18 3-24 10z"
+          fill="#f7d26a" stroke="#ffe9a8" stroke-width="2"/>
+  </g>
+</svg>

@@ -1,0 +1,166 @@
+const path = require("path");
+const sqlite3 = require("sqlite3").verbose();
+
+const DB_FILE = process.env.DB_FILE || path.join(__dirname, "..", "data.sqlite");
+const db = new sqlite3.Database(DB_FILE);
+
+const run = (sql, params = []) =>
+  new Promise((resolve, reject) =>
+    db.run(sql, params, function (err) {
+      if (err) return reject(err);
+      resolve({ lastID: this.lastID, changes: this.changes });
+    })
+  );
+
+const get = (sql, params = []) =>
+  new Promise((resolve, reject) =>
+    db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)))
+  );
+
+const all = (sql, params = []) =>
+  new Promise((resolve, reject) =>
+    db.all(sql, params, (err, rows) => (err ? reject(err) : resolve(rows)))
+  );
+
+async function hasColumn(table, col) {
+  const rows = await all(`PRAGMA table_info(${table})`);
+  return rows.some((r) => r.name === col);
+}
+async function ensureColumn(table, col, ddl) {
+  if (!(await hasColumn(table, col))) await run(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+}
+
+function rewardFor(complexity) {
+  return [10, 15, 20, 25, 30][Math.max(0, Math.min(4, complexity - 1))];
+}
+
+async function seedTasksIfNeeded() {
+  const row = await get("SELECT COUNT(*) AS c FROM tasks");
+  const count = row ? row.c : 0;
+  if (count >= 500) return;
+
+  const media = [
+    { type: "audio_transcription", url: "https://upload.wikimedia.org/wikipedia/commons/4/4f/En-us-hello.ogg", base: "Transcribe the spoken words accurately." },
+    { type: "audio_transcription", url: "https://upload.wikimedia.org/wikipedia/commons/0/09/En-us-good_morning.ogg", base: "Write the exact transcript. Include punctuation." },
+    { type: "audio_transcription", url: "https://upload.wikimedia.org/wikipedia/commons/2/21/En-us-thank_you.ogg", base: "Transcribe clearly. If unclear, write [inaudible]." },
+    { type: "video_transcription", url: "https://upload.wikimedia.org/wikipedia/commons/transcoded/3/3f/Sample_video.ogv/Sample_video.ogv.360p.webm", base: "Transcribe any spoken words in the video. If none, describe what happens." },
+    { type: "video_transcription", url: "https://upload.wikimedia.org/wikipedia/commons/transcoded/7/7e/Big_Buck_Bunny_Trailer_400p.ogv/Big_Buck_Bunny_Trailer_400p.ogv.360p.webm", base: "Write a clean transcript of the audio (or key dialogue)." },
+    { type: "image_caption", url: "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1200&q=80", base: "Write one sentence describing the image (what is happening?)." },
+    { type: "image_caption", url: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80", base: "Caption the image naturally, like a real post." },
+    { type: "image_caption", url: "https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=1200&q=80", base: "Describe the scene and mood in 1–2 sentences." }
+  ];
+
+  const titles = { audio_transcription: "Audio Transcription", video_transcription: "Video Transcription", image_caption: "Image Caption" };
+  const target = 2000;
+
+  for (let i = 0; i < target; i++) {
+    const m = media[i % media.length];
+    const complexity = 1 + (i % 5);
+    const reward_ksh = rewardFor(complexity);
+    const extra =
+      m.type === "image_caption"
+        ? (complexity >= 4 ? " Include 2 specific details you notice." : " Keep it human and realistic.")
+        : (complexity >= 4 ? " Include speaker labels if possible." : " Keep it short but correct.");
+    const prompt = `${m.base} ${extra}`;
+
+    await run(
+      "INSERT INTO tasks (type, title, prompt, media_url, reward_ksh, complexity, active) VALUES (?,?,?,?,?,?,1)",
+      [m.type, `${titles[m.type]} #${i + 1}`, prompt, m.url, reward_ksh, complexity]
+    );
+  }
+}
+
+async function initDb() {
+  await run("PRAGMA foreign_keys = ON");
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      referral_code TEXT UNIQUE NOT NULL,
+      referred_by INTEGER,
+      balance_ksh INTEGER NOT NULL DEFAULT 0,
+      bonus_ksh INTEGER NOT NULL DEFAULT 0,
+      full_name TEXT,
+      phone TEXT,
+      payment_number TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      delete_requested_at TEXT,
+      delete_effective_at TEXT,
+      FOREIGN KEY (referred_by) REFERENCES users(id)
+    )
+  `);
+
+  await ensureColumn("users", "bonus_ksh", "bonus_ksh INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("users", "full_name", "full_name TEXT");
+  await ensureColumn("users", "phone", "phone TEXT");
+  await ensureColumn("users", "payment_number", "payment_number TEXT");
+  await ensureColumn("users", "delete_requested_at", "delete_requested_at TEXT");
+  await ensureColumn("users", "delete_effective_at", "delete_effective_at TEXT");
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      media_url TEXT NOT NULL,
+      reward_ksh INTEGER NOT NULL,
+      complexity INTEGER NOT NULL DEFAULT 1,
+      active INTEGER NOT NULL DEFAULT 1
+    )
+  `);
+
+  // If tasks existed from old schema, add new cols
+  await ensureColumn("tasks", "type", "type TEXT");
+  await ensureColumn("tasks", "prompt", "prompt TEXT");
+  await ensureColumn("tasks", "media_url", "media_url TEXT");
+  await ensureColumn("tasks", "complexity", "complexity INTEGER NOT NULL DEFAULT 1");
+
+  // Daily assigned tasks + completion history
+  await run(`
+    CREATE TABLE IF NOT EXISTS daily_tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      day_key TEXT NOT NULL,
+      task_id INTEGER NOT NULL,
+      answer_text TEXT,
+      completed_at TEXT,
+      assigned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, day_key, task_id),
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (task_id) REFERENCES tasks(id)
+    )
+  `);
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS task_completions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      task_id INTEGER NOT NULL,
+      reward_ksh INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id),
+      FOREIGN KEY (task_id) REFERENCES tasks(id)
+    )
+  `);
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS withdrawals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      amount_ksh INTEGER NOT NULL,
+      phone_number TEXT NOT NULL,
+      method TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT "Pending",
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
+  await seedTasksIfNeeded();
+}
+
+module.exports = { db, run, get, all, initDb };

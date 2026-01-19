@@ -1,0 +1,201 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+type Slide = { image: string };
+
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function useInterval(callback: () => void, delay: number | null) {
+  useEffect(() => {
+    if (delay === null) return;
+    const id = window.setInterval(callback, delay);
+    return () => window.clearInterval(id);
+  }, [callback, delay]);
+}
+
+function NeonWordmark({ text }: { text: string }) {
+  return (
+    <div className="relative select-none">
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 blur-[14px] opacity-70"
+        style={{
+          background:
+            "linear-gradient(90deg, rgba(255,122,24,0.55), rgba(255,210,63,0.55), rgba(0,255,175,0.55), rgba(85,173,255,0.55), rgba(200,110,255,0.55))",
+          WebkitMaskImage: "linear-gradient(#000, #000)",
+          maskImage: "linear-gradient(#000, #000)",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 translate-x-[2px] translate-y-[3px] opacity-30 blur-[2.2px]"
+        style={{
+          color: "rgba(0,0,0,0.65)",
+          textShadow: "0 10px 24px rgba(0,0,0,0.45)",
+          fontWeight: 900,
+          transform: "skewX(-6deg) rotate(-1deg)",
+        }}
+      >
+        <span className="block text-[44px] sm:text-[58px] leading-none tracking-tight">
+          {text}
+        </span>
+      </div>
+
+      <div
+        className="relative font-black tracking-tight"
+        style={{
+          background:
+            "linear-gradient(90deg, #FF7A18, #FFD23F, #00FFA8, #55ADFF, #C86EFF)",
+          WebkitBackgroundClip: "text",
+          backgroundClip: "text",
+          color: "transparent",
+          textShadow:
+            "0 0 10px rgba(255,255,255,0.14), 0 0 26px rgba(85,173,255,0.18), 0 0 26px rgba(0,255,168,0.16)",
+          transform: "skewX(-6deg) rotate(-1deg)",
+        }}
+      >
+        <span className="block text-[44px] sm:text-[58px] leading-none">
+          {text}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+export default function Landing() {
+  const navigate = useNavigate();
+
+  const slides: Slide[] = useMemo(
+    () => [
+      { image: "/hero/slide-1.svg" },
+      { image: "/hero/slide-2.svg" },
+      { image: "/hero/slide-3.svg" },
+    ],
+    []
+  );
+
+  const [active, setActive] = useState(0);
+  const [pauseUntil, setPauseUntil] = useState<number>(0);
+
+  useInterval(
+    () => {
+      if (Date.now() < pauseUntil) return;
+      setActive((i) => (i + 1) % slides.length);
+    },
+    slides.length > 1 ? 4500 : null
+  );
+
+  const goTo = (i: number) => {
+    setActive(clamp(i, 0, slides.length - 1));
+    setPauseUntil(Date.now() + 6000);
+  };
+
+  return (
+    <div className="relative min-h-screen w-full overflow-hidden">
+      {/* Background slider */}
+      <div className="absolute inset-0">
+        {slides.map((s, i) => (
+          <div
+            key={s.image}
+            className={`absolute inset-0 transition-opacity duration-700 ${
+              i === active ? "opacity-100" : "opacity-0"
+            }`}
+            style={{
+              backgroundImage: `url(${s.image})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          />
+        ))}
+
+        {/* dim + blur (no text outside card) */}
+        <div className="absolute inset-0 bg-black/25" />
+        <div className="absolute inset-0 backdrop-blur-[18px]" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/25" />
+      </div>
+
+      {/* Center card */}
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-[520px] items-center justify-center px-4 py-10">
+        <div className="w-full">
+          <div className="relative mx-auto w-full max-w-[420px] rounded-[44px] border border-white/10 bg-[#0b0f12]/80 shadow-[0_20px_80px_rgba(0,0,0,0.55)] backdrop-blur-[14px]">
+            <div className="px-10 pb-10 pt-10">
+              {/* coin logo */}
+              <div className="mx-auto flex w-full justify-center">
+                <div className="relative">
+                  <div
+                    className="absolute inset-0 rounded-full blur-[18px] opacity-80"
+                    style={{
+                      background:
+                        "radial-gradient(circle at 40% 35%, rgba(34,197,94,0.55), rgba(234,179,8,0.35), rgba(0,0,0,0) 65%)",
+                    }}
+                  />
+                  <img
+                    src="/brand/sg-coin.svg"
+                    alt="Synthgraphix logo"
+                    className="relative h-[76px] w-[76px] rounded-full"
+                    draggable={false}
+                  />
+                </div>
+              </div>
+
+              {/* wordmark */}
+              <div className="mt-6 flex justify-center">
+                <NeonWordmark text="Synthgraphix" />
+              </div>
+
+              <div className="mt-1 text-center text-[11px] tracking-[0.22em] text-emerald-200/70">
+                BUSINESS PLATFORM
+              </div>
+
+              <div className="mt-8 flex justify-center"><img src="/brand/arrow-3d.svg" alt="arrow" className="h-[34px] w-[34px] drop-shadow-[0_10px_18px_rgba(0,0,0,0.55)]" /></div>
+              </div>
+
+              <div className="mt-5 text-center">
+  <div className="relative inline-block select-none">
+    <div className="absolute inset-0 translate-x-[2px] translate-y-[3px] opacity-35 blur-[1.2px]" style={{ color: "rgba(0,0,0,0.75)" }}>
+      <div className="text-[24px] sm:text-[28px] font-black leading-tight">Path to Financial Freedom</div>
+    </div>
+    <div className="relative text-[24px] sm:text-[28px] font-black leading-tight" style={{ background: "linear-gradient(90deg,#ffffff,#e5e7eb,#ffffff,#d1d5db)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent", textShadow: "0 1px 0 rgba(255,255,255,0.25), 0 10px 26px rgba(0,0,0,0.45)" }}>Path to Financial Freedom</div>
+  </div>
+</div>
+              <div className="mt-2 text-center text-sm text-white/55">
+                Unlock new earning potentials today.
+              </div>
+
+              {/* dark spacer panel */}
+                {/* dark spacer panel */}
+                <div className=mt-8
+            </div>
+
+            {/* Get Started area (kept bright) */}
+            <div className="px-8 pb-8">
+              <button
+                onClick={() => navigate("/login")}
+                className="w-full rounded-2xl bg-white py-4 text-center font-semibold text-slate-900 shadow-[0_16px_40px_rgba(255,255,255,0.22)] transition-transform active:scale-[0.99]"
+              >
+                Get Started →
+              </button>
+
+              <div className="mt-4 flex items-center justify-center gap-2">
+                {slides.map((_, i) => (
+                  <button
+                    key={i}
+                    aria-label={`go to slide ${i + 1}`}
+                    onClick={() => goTo(i)}
+                    className={`h-2 rounded-full transition-all ${
+                      i === active ? "bg-white/80 w-5" : "bg-white/35 w-2"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="h-6" />
+        </div>
+      </div>
+    </div>
+  );
+}
